@@ -1,0 +1,29 @@
+#!/bin/sh
+# readeck-build - build Readeck for an OpenBSD/amd64 server, on another machine
+# (Linux) or on the server itself if it has the memory.
+# Needs go (1.21+, it fetches the version Readeck asks for), git, npm, python3 + babel.
+# On OpenBSD: pkg_add go git node gmake py3-babel
+# by Stathis, https://nevrast.xyz
+# USAGE: ./readeck-build <version> ; scp readeck root@server: ; then run readeck.sh there
+# Versions: https://codeberg.org/readeck/readeck/releases (e.g. 0.23.4)
+
+set -e
+v=${1:?usage: $0 <readeck version, e.g. 0.23.4>}
+out=$PWD/readeck
+src=$(mktemp -d)
+trap 'rm -rf "$src"' EXIT
+# Readeck's Makefile needs GNU make, which OpenBSD installs as gmake
+make=$(command -v gmake || echo make)
+
+git clone -q --depth 1 --branch "$v" https://codeberg.org/readeck/readeck.git "$src"
+cd "$src"
+$make -C web setup
+# generate runs helper programs on the build machine itself, so the OpenBSD
+# target (GOOS) is set only for the final build below
+$make generate
+# CGO_ENABLED=0 picks Readeck's pure-Go SQLite driver, so no OpenBSD C toolchain is
+# needed. Readeck logs a warning about it; it's fine for a personal server.
+# For an arm64 server, change GOARCH to arm64.
+$make build CGO_ENABLED=0 GOOS=openbsd GOARCH=amd64
+mv dist/readeck "$out"
+echo "built $out ($v)"
