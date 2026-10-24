@@ -54,6 +54,8 @@ chmod 555 /etc/rc.d/readeck
 rcctl enable readeck
 
 # INSTALL OR UPGRADE THE BINARY, keeping the old binary and data for rollback
+fresh=1
+[ -x /usr/local/bin/readeck ] && fresh=0
 upgraded=0
 if [ -f /root/readeck ]; then
 	if [ -x /usr/local/bin/readeck ]; then
@@ -89,4 +91,10 @@ fi
 # pkg_add tailscale ; rcctl enable tailscaled ; rcctl start tailscaled ; tailscale up)
 tailscale serve --bg --https=$tsport "http://127.0.0.1:$port"
 tailscale serve status
-echo "Done. Open the tailnet address above and create your account on the first visit."
+if [ $fresh -eq 1 ]; then
+	echo "Done. Open the tailnet address above and create your account on the first visit."
+elif [ $upgraded -eq 1 ]; then
+	echo "Done. Upgraded; the previous binary and data are kept as /usr/local/bin/readeck.bak and /var/readeck.bak."
+else
+	echo "Done."
+fi
